@@ -12,7 +12,7 @@ on:
 
 jobs:
   save_new_wechat:
-    runs-on: ubuntu-latest
+    runs-on: macos-13
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
