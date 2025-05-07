@@ -2,107 +2,188 @@
 
 set -eo pipefail
 
-temp_path="WeChatSetup/temp"
-latest_path="WeChatSetup/latest"
+# ====================================================
+# 配置变量
+# ====================================================
+TEMP_PATH="WeChatWin/temp"
+LATEST_PATH="WeChatWin/latest"
+DOWNLOAD_LINK="$1"
+DEFAULT_DOWNLOAD_LINK="https://dldir1v6.qq.com/weixin/Universal/Windows/WeChatWin.exe"
 
-download_link="$1"
 if [ -z "$1" ]; then
-    >&2 echo -e "Missing argument. Using default download link"
-    download_link="https://dldir1.qq.com/weixin/Windows/WeChatSetup.exe"
+    echo_color "yellow" "Missing argument. Using default download link."
+    DOWNLOAD_LINK="$DEFAULT_DOWNLOAD_LINK"
 fi
 
-function install_depends() {
-    printf "#%.0s" {1..60}
-    echo 
-    echo -e "## \033[1;33mInstalling 7zip, shasum, wget, curl, git\033[0m"
-    printf "#%.0s" {1..60}
-    echo 
+# ====================================================
+# 函数定义
+# ====================================================
 
-    apt install -y p7zip-full p7zip-rar libdigest-sha-perl wget curl git
+# 打印分隔线
+print_separator() {
+    printf '%*s\n' 60 | tr ' ' '#'
 }
 
-function download_wechat() {
-    printf "#%.0s" {1..60}
-    echo 
-    echo -e "## \033[1;33mDownloading the newest WechatSetup...\033[0m"
-    printf "#%.0s" {1..60}
-    echo 
+# 彩色输出函数
+echo_color() {
+    local color="$1"
+    shift
+    local message="$*"
+    case "$color" in
+        yellow)
+            echo -e "\033[1;33m$message\033[0m"
+            ;;
+        red)
+            echo -e "\033[1;31m$message\033[0m" >&2
+            ;;
+        green)
+            echo -e "\033[1;32m$message\033[0m"
+            ;;
+        *)
+            echo "$message"
+            ;;
+    esac
+}
 
-    wget -q "$download_link" -O ${temp_path}/WeChatSetup.exe
+# 安装依赖项
+install_depends() {
+    print_separator
+    echo_color "yellow" "Installing dependencies: 7zip, shasum, wget, curl, git"
+    print_separator
+
+    brew install p7zip wget curl git
+}
+
+# 下载 WeChat 安装包
+download_wechat() {
+    print_separator
+    echo_color "yellow" "Downloading the newest WeChatWin..."
+    print_separator
+
+    mkdir -p "$TEMP_PATH"
+    wget -q "$DOWNLOAD_LINK" -O "${TEMP_PATH}/WeChatWin.exe"
     if [ "$?" -ne 0 ]; then
-        >&2 echo -e "\033[1;31mDownload Failed, please check your network!\033[0m"
+        echo_color "red" "Download Failed, please check your network!"
         clean_data 1
     fi
 }
 
-function extract_version() {
-    printf "#%.0s" {1..60}
-    echo 
-    echo -e "## \033[1;33mExtract WechatSetup, get the dest version of wechat\033[0m"
-    printf "#%.0s" {1..60}
-    echo 
-    
-    # new version
-    7z x ${temp_path}/WeChatSetup.exe -o${temp_path}/temp
-    dest_version=`ls -l ${temp_path}/temp | awk '{print $9}' | grep '^\[[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\]$' | sed -e 's/^\[//g' -e 's/\]$//g'`
-}
+# 提取版本信息
+extract_version() {
+    print_separator
+    echo_color "yellow" "Extracting version from WeChatWin..."
+    print_separator
 
-
-# rename and replace
-function prepare_commit() {
-    printf "#%.0s" {1..60}
-    echo 
-    echo -e "## \033[1;33mPrepare to commit new version\033[0m"
-    printf "#%.0s" {1..60}
-    echo 
-
-    mkdir -p WeChatSetup/$dest_version
-    cp $temp_path/WeChatSetup.exe WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe
-    echo "DestVersion: $dest_version" > WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe.sha256
-    echo "Sha256: $now_sum256" >> WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe.sha256
-    echo "UpdateTime: $(date -u '+%Y-%m-%d %H:%M:%S') (UTC)" >> WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe.sha256
-    echo "DownloadFrom: $download_link" >> WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe.sha256
-    
-}
-
-function clean_data() {
-    printf "#%.0s" {1..60}
-    echo 
-    echo -e "## \033[1;33mClean runtime and exit...\033[0m"
-    printf "#%.0s" {1..60}
-    echo 
-
-    rm -rfv WeChatSetup/*
-    exit $1
-}
-
-function main() {
-    # rm -rfv WeChatSetup/*
-    mkdir -p ${temp_path}/temp
-    #login_gh
-    ## https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md
-    # install_depends
-    download_wechat
-
-    now_sum256=`shasum -a 256 ${temp_path}/WeChatSetup.exe | awk '{print $1}'`
-    local latest_release_version=$(gh release list | grep '_win_' | head -n 1 | awk '{print $2}')
-    local latest_sum256=`gh release view $latest_release_version --json body --jq ".body" | awk '/Sha256/{ print $2 }'`
-    local latest_version=`gh release view $latest_release_version --json body --jq ".body" | awk '/DestVersion/{ print $2 }'`
-
-    if [ "$now_sum256" = "$latest_sum256" ]; then
-        >&2 echo -e "\n\033[1;32mThis is the newest Version!\033[0m\n"
-        clean_data 0
+    # 第一次解压，得到 install.7z
+    7z x "${TEMP_PATH}/WeChatWin.exe" -o"${TEMP_PATH}/temp"
+    if [ ! -f "${TEMP_PATH}/temp/install.7z" ]; then
+        echo_color "red" "Failed to extract install.7z!"
+        clean_data 1
     fi
-    ## if not the newest
+
+    # 第二次解压，得到带版本号的文件夹
+    7z x "${TEMP_PATH}/temp/install.7z" -o"${TEMP_PATH}/temp/install"
+    DEST_VERSION=$(ls -l "${TEMP_PATH}/temp/install" | awk '{print $9}' | grep '^[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*$')
+
+    if [ -z "$DEST_VERSION" ]; then
+        echo_color "red" "Failed to extract version information!"
+        clean_data 1
+    fi
+}
+
+# 计算 SHA256
+compute_sha256() {
+    local file_path="$1"
+    shasum -a 256 "$file_path" | awk '{print $1}'
+}
+
+# 准备提交（复制文件并生成 SHA256）
+prepare_commit() {
+    print_separator
+    echo_color "yellow" "Preparing to commit new version..."
+    print_separator
+
+    VERSION_DIR="WeChatWin/$DEST_VERSION"
+    mkdir -p "$VERSION_DIR"
+    cp "${TEMP_PATH}/WeChatWin.exe" "$VERSION_DIR/WeChatWin-$DEST_VERSION.exe"
+
+    NOW_SUM256=$(compute_sha256 "$VERSION_DIR/WeChatWin-$DEST_VERSION.exe")
+
+    cat > "$VERSION_DIR/WeChatWin-$DEST_VERSION.exe.sha256" <<EOF
+DestVersion: $DEST_VERSION
+Sha256: $NOW_SUM256
+UpdateTime: $(date -u '+%Y-%m-%d %H:%M:%S') (UTC)
+DownloadFrom: $DOWNLOAD_LINK
+EOF
+
+    echo_color "green" "SHA256: $NOW_SUM256"
+}
+
+# 获取最新 GitHub Release 信息
+get_latest_release_info() {
+    print_separator
+    echo_color "yellow" "Getting latest GitHub release info..."
+    print_separator
+
+    LATEST_BODY=$(gh release view --json body --jq ".body" || true)
+
+    if [ -z "$LATEST_BODY" ]; then
+        LATEST_SUM256=""
+        LATEST_VERSION=""
+    else
+        LATEST_SUM256=$(echo "$LATEST_BODY" | grep 'Sha256:' | awk -F': ' '{print $2}')
+        LATEST_VERSION=$(echo "$LATEST_BODY" | grep 'DestVersion:' | awk -F': ' '{print $2}')
+    fi
+
+    echo_color "green" "Latest Version: $LATEST_VERSION"
+    echo_color "green" "Latest SHA256: $LATEST_SUM256"
+}
+
+# 创建新的 GitHub Release
+create_release() {
+    print_separator
+    echo_color "yellow" "Creating new GitHub release..."
+    print_separator
+
+    if [ "$DEST_VERSION" = "$LATEST_VERSION" ]; then
+        VERSION_TAG="${DEST_VERSION}_win_$(date -u '+%Y%m%d')"
+    else
+        VERSION_TAG="$DEST_VERSION"
+    fi
+
+    gh release create "v$VERSION_TAG" "WeChatWin/$DEST_VERSION/WeChatWin-$DEST_VERSION.exe" \
+        -F "WeChatWin/$DEST_VERSION/WeChatWin-$DEST_VERSION.exe.sha256" \
+        -t "Wechat For Windows v$VERSION_TAG"
+}
+
+# 清理临时数据并退出
+clean_data() {
+    print_separator
+    echo_color "yellow" "Cleaning runtime and exiting..."
+    print_separator
+
+    rm -rfv "WeChatWin"
+    exit "$1"
+}
+
+# ====================================================
+# 主流程
+# ====================================================
+main() {
+    mkdir -p "$TEMP_PATH"
+    install_depends
+    download_wechat
     extract_version
     prepare_commit
+    get_latest_release_info
 
-    version="${dest_version}_win_$(date -u '+%Y%m%d')"
+    if [ "$NOW_SUM256" = "$LATEST_SUM256" ] && [ -n "$LATEST_SUM256" ]; then
+        echo_color "green" "This is the newest Version!"
+        clean_data 0
+    fi
 
-    gh release create "v$version" ./WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe -F ./WeChatSetup/$dest_version/WeChatSetup-$dest_version.exe.sha256 -t "Wechat v$version"
-
+    create_release
     clean_data 0
 }
 
 main
-
