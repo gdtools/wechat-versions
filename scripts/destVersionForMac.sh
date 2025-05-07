@@ -66,9 +66,10 @@ download_wechat() {
 }
 
 # 从 Info.plist 提取版本信息
+# 从 WeChat 文件提取版本信息
 get_version() {
     print_separator
-    echo_color "yellow" "Extracting version from DMG (macOS)..."
+    echo_color "yellow" "Extracting version from WeChat binary (macOS)..."
     print_separator
 
     # 挂载 dmg
@@ -79,24 +80,23 @@ get_version() {
         clean_data 1
     fi
 
-    # 定位 Info.plist
-    # INFO_PLIST=$(find "${MOUNT_DIR}" -type f -name "Info.plist" | head -n 1)
-    INFO_PLIST="${MOUNT_DIR}/WeChat.app/Contents/Info.plist"
+    # 定位 WeChat 二进制文件
+    WECHAT_BINARY="${MOUNT_DIR}/WeChat.app/Contents/MacOS/WeChat"
 
-    if [ ! -f "$INFO_PLIST" ]; then
-        echo_color "red" "Info.plist not found in mounted volume!"
+    if [ ! -f "$WECHAT_BINARY" ]; then
+        echo_color "red" "WeChat binary not found!"
         hdiutil detach "$MOUNT_DIR"
         clean_data 1
     fi
 
-    # 使用 grep 和 sed 提取版本号
-    VERSION=$(grep -A1 '<key>CFBundleShortVersionString</key>' "$INFO_PLIST" | grep '<string>' | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+    # 使用 strings 提取版本号
+    VERSION=$(strings "$WECHAT_BINARY" | grep '^[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*$' | sort | uniq -c | sort -rn | head -n 1 | awk '{print $2}')
 
     # 卸载 dmg
     hdiutil detach "$MOUNT_DIR"
 
     if [ -z "$VERSION" ]; then
-        echo_color "red" "Version information not found in Info.plist!"
+        echo_color "red" "Version information not found in WeChat binary!"
         clean_data 1
     fi
 
