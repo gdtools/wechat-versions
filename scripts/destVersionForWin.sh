@@ -142,15 +142,22 @@ create_release() {
     echo_color "yellow" "Creating new GitHub release..."
     print_separator
 
+    # 检查是否版本号相同
     if [ "$VERSION" = "$LATEST_VERSION" ]; then
-        VERSION_TAG="${VERSION}_win_$(date -u '+%Y%m%d')"
+        # 如果版本相同，生成带时间戳的 Tag
+        VERSION_TAG="${VERSION}_win_$(date -u '+%Y%m%d%H%M%S')"
+        echo_color "yellow" "Version already exists. Using new tag: v$VERSION_TAG"
     else
         VERSION_TAG="$VERSION"
     fi
 
+    # 尝试创建 Release
     gh release create "v$VERSION_TAG" "WeChatWin/$VERSION/WeChatWin-$VERSION.exe" \
         -F "WeChatWin/$VERSION/WeChatWin-$VERSION.exe.sha256" \
-        -t "Wechat For Windows v$VERSION_TAG"
+        -t "Wechat For Windows v$VERSION_TAG" || {
+            echo_color "red" "Failed to create release. Tag v$VERSION_TAG might already exist."
+            clean_data 1
+        }
 }
 
 # 清理临时数据并退出
