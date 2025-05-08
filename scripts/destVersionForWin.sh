@@ -5,7 +5,7 @@ set -eo pipefail
 # ====================================================
 # 配置变量
 # ====================================================
-TEMP_PATH="WeChatWin/temp"
+TEMP_PATH="WeChatWin"
 WEBSITE_URL="https://dldir1v6.qq.com/weixin/Universal/Windows/WeChatWin.exe"
 DOWNLOAD_LINK=""
 VERSION=""
@@ -156,7 +156,7 @@ create_release() {
         -F "WeChatWin/$VERSION/WeChatWin-$VERSION.exe.sha256" \
         -t "Wechat For Windows v$VERSION_TAG" || {
             echo_color "red" "Failed to create release. Tag v$VERSION_TAG might already exist."
-            clean_data 1
+            clean_data 0
         }
 }
 
@@ -174,7 +174,6 @@ clean_data() {
 # 主流程
 # ====================================================
 main() {
-    mkdir -p "$TEMP_PATH"
     install_depends
     download_wechat
     extract_version
