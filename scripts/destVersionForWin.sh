@@ -6,6 +6,7 @@ set -eo pipefail
 # 配置变量
 # ====================================================
 TEMP_PATH="WeChatWin"
+PLATFORM="For Windows"
 WEBSITE_URL="https://dldir1v6.qq.com/weixin/Universal/Windows/WeChatWin.exe"
 DOWNLOAD_LINK=""
 VERSION=""
@@ -119,34 +120,39 @@ EOF
 # 获取最新 Release 信息
 get_latest_release_info() {
     print_separator
-    echo_color "yellow" "Getting latest GitHub release info..."
+    echo_color "yellow" "Getting latest GitHub release info for platform: $PLATFORM..."
     print_separator
 
-    LATEST_BODY=$(gh release view --json body --jq ".body" || true)
+    # 获取所有的 release 信息
+    RELEASES=$(gh release list --limit 100 || true)
 
-    if [ -z "$LATEST_BODY" ]; then
+    # 根据平台筛选 release
+    FILTERED_RELEASE=$(echo "$RELEASES" | grep "$PLATFORM" || true)
+
+    if [ -z "$FILTERED_RELEASE" ]; then
         LATEST_SUM256=""
         LATEST_VERSION=""
     else
-        LATEST_SUM256=$(echo "$LATEST_BODY" | grep 'Sha256:' | awk -F': ' '{print $2}')
-        LATEST_VERSION=$(echo "$LATEST_BODY" | grep 'DestVersion:' | awk -F': ' '{print $2}')
+        # 提取最新的版本信息（根据你的 release 格式调整解析）
+        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $1}' | sed 's/^v//')
+        LATEST_SUM256=$(gh release view "v$LATEST_VERSION" --json body --jq ".body" | grep 'Sha256:' | awk -F': ' '{print $2}')
     fi
 
-    echo_color "green" "Latest Version: $LATEST_VERSION"
-    echo_color "green" "Latest SHA256: $LATEST_SUM256"
+    echo_color "green" "Latest Version for $PLATFORM: $LATEST_VERSION"
+    echo_color "green" "Latest SHA256 for $PLATFORM: $LATEST_SUM256"
 }
 
 # 创建新的 Release
 create_release() {
     print_separator
-    echo_color "yellow" "Creating new GitHub release..."
+    echo_color "yellow" "Creating new GitHub release for platform: $PLATFORM..."
     print_separator
 
-    # 检查是否版本号相同
+    # 检查是否版本号冲突
     if [ "$VERSION" = "$LATEST_VERSION" ]; then
-        # 如果版本相同，生成带时间戳的 Tag
-        VERSION_TAG="${VERSION}_win_$(date -u '+%Y%m%d%H%M%S')"
-        echo_color "yellow" "Version already exists. Using new tag: v$VERSION_TAG"
+        # 如果版本冲突，生成带时间戳的 Tag
+        VERSION_TAG="${VERSION}_${PLATFORM}_$(date -u '+%Y%m%d%H%M%S')"
+        echo_color "yellow" "Version already exists for $PLATFORM. Using new tag: v$VERSION_TAG"
     else
         VERSION_TAG="$VERSION"
     fi
@@ -154,9 +160,10 @@ create_release() {
     # 尝试创建 Release
     gh release create "v$VERSION_TAG" "WeChatWin/$VERSION/WeChatWin-$VERSION.exe" \
         -F "WeChatWin/$VERSION/WeChatWin-$VERSION.exe.sha256" \
-        -t "Wechat For Windows v$VERSION_TAG" || {
+        -t "Wechat For Windows v$VERSION_TAG" \
+        -n "Platform: $PLATFORM" || {
             echo_color "red" "Failed to create release. Tag v$VERSION_TAG might already exist."
-            clean_data 0
+            clean_data 1
         }
 }
 
