@@ -134,7 +134,7 @@ get_latest_release_info() {
         LATEST_VERSION=""
     else
         # 提取最新的版本信息（根据你的 release 格式调整解析）
-        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $1}' | sed 's/^v//')
+        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $3}' | sed 's/^v//')
         LATEST_SUM256=$(gh release view "v$LATEST_VERSION" --json body --jq ".body" | grep 'Sha256:' | awk -F': ' '{print $2}')
     fi
 
