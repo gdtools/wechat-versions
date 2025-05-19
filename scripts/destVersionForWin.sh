@@ -115,11 +115,11 @@ get_release_info() {
         exit 1
     }
     
-    # 筛选最新发布版本
-    FILTERED_RELEASE=$(gh release list --limit 10 2>/dev/null | grep "$PLATFORM" | head -1 || true)
+    # 筛选最新发布版本（tag 以 -win 结尾）
+    FILTERED_RELEASE=$(gh release list --limit 20 2>/dev/null | grep "$PLATFORM" | grep -E '\-win[[:space:]]' | head -1 || true)
     
     if [ -n "$FILTERED_RELEASE" ]; then
-        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $4}' | sed 's/^v//')
+        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $4}' | sed 's/^v//' )
         LATEST_SUM256=$(gh release view "v$LATEST_VERSION" --json body --jq ".body" | grep 'Sha256:' | awk -F': ' '{print $2}' || echo "")
     fi
 }
@@ -129,9 +129,9 @@ create_release() {
     echo_color "yellow" "创建 GitHub 发布"
 
     # 处理版本冲突
-    local VERSION_TAG="$VERSION"
-    if [ "$VERSION" = "$LATEST_VERSION" ]; then
-        VERSION_TAG="${VERSION}_$(date -u '+%Y%m%d%H%M%S')"
+    local VERSION_TAG="${VERSION}-win"
+    if [ "${VERSION}-win" = "$LATEST_VERSION" ]; then
+        VERSION_TAG="${VERSION}-win_$(date -u '+%Y%m%d%H%M%S')"
     fi
 
     # 发布说明
@@ -140,7 +140,7 @@ create_release() {
     # 创建发布
     gh release create "v$VERSION_TAG" "$VERSION_DIR/WeChatWin-$VERSION.exe" \
         -F "$VERSION_DIR/WeChatWin-$VERSION.exe.sha256" \
-        -t "Wechat For Windows v$VERSION_TAG"_win \
+        -t "Wechat For Windows v$VERSION_TAG" \
         -n "$RELEASE_NOTES" || {
             echo_color "red" "创建发布失败"
             exit 1
