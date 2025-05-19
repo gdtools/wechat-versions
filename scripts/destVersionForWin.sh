@@ -140,7 +140,7 @@ create_release() {
     # 创建发布
     gh release create "v$VERSION_TAG" "$VERSION_DIR/WeChatWin-$VERSION.exe" \
         -F "$VERSION_DIR/WeChatWin-$VERSION.exe.sha256" \
-        -t "Wechat For Windows v$VERSION_TAG" \
+        -t "Wechat For Windows v$VERSION_TAG"_win \
         -n "$RELEASE_NOTES" || {
             echo_color "red" "创建发布失败"
             exit 1

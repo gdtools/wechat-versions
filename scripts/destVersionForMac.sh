@@ -168,7 +168,7 @@ create_release() {
     # 创建发布
     gh release create "v$VERSION_TAG" "$VERSION_DIR/WeChatMac-$VERSION.dmg" \
         -F "$VERSION_DIR/WeChatMac-$VERSION.dmg.sha256" \
-        -t "WeChat $PLATFORM v$VERSION_TAG" \
+        -t "WeChat $PLATFORM v$VERSION_TAG"_mac \
         -n "$RELEASE_NOTES" || {
             echo_color "red" "创建发布失败"
             exit 1
