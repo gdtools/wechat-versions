@@ -7,7 +7,7 @@ set -eo pipefail
 # ====================================================
 TEMP_PATH="WeChatWin"
 PLATFORM="For Windows"
-WEBSITE_URL="https://dldir1.qq.com/weixin/Universal/Windows/WeChatWin.exe"
+WEBSITE_URL="https://dldir1v6.qq.com/weixin/Universal/Windows/WeChatWin.exe"
 VERSION=""
 NOW_SUM256=""
 LATEST_SUM256=""
