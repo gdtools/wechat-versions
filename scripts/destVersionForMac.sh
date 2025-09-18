@@ -89,19 +89,62 @@ extract_version() {
     fi
     
     # 提取版本号
-    VERSION=$(strings "$WECHAT_BINARY" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | sort | uniq -c | sort -rn | head -n 1 | awk '{print $2}')
+    # 首先尝试从 Info.plist 获取版本号
+    local INFO_PLIST="${MOUNT_DIR}/WeChat.app/Contents/Info.plist"
+    if [ -f "$INFO_PLIST" ]; then
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || true)
+        
+        if [ -z "$VERSION" ]; then
+            VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || true)
+        fi
+    fi
+    
+    # 如果从 Info.plist 获取失败，尝试从二进制文件中提取
+    if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        VERSION=$(strings "$WECHAT_BINARY" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^127\.' | sort -V | tail -n 1)
+    fi
     
     # 卸载 DMG
     hdiutil detach "$MOUNT_DIR" &>/dev/null || {
         echo_color "yellow" "卸载 DMG 时出现警告，继续执行"
     }
     
-    if [ -z "$VERSION" ]; then
-        echo_color "red" "无法提取版本信息"
+    if [ -z "$VERSION" ] || ! validate_version "$VERSION"; then
+        echo_color "red" "无法提取有效的版本信息"
+        echo_color "red" "当前提取到的版本号: ${VERSION:-未找到}"
         exit 1
     fi
     
     echo_color "green" "提取到版本号: $VERSION"
+    
+    # 显示二进制文件中的所有版本号（用于调试）
+    if [ "${DEBUG:-}" = "1" ]; then
+        echo_color "yellow" "二进制文件中的所有版本号:"
+        strings "$WECHAT_BINARY" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | sort -V
+    fi
+}
+
+# 验证版本号格式
+validate_version() {
+    local ver="$1"
+    
+    # 检查版本号格式
+    if ! echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+        return 1
+    fi
+    
+    # 检查版本号范围
+    local major_ver=$(echo "$ver" | cut -d. -f1)
+    if [ "$major_ver" -lt 1 ] || [ "$major_ver" -gt 9 ]; then
+        return 1
+    fi
+    
+    # 排除特殊版本号
+    if echo "$ver" | grep -qE '^(0\.|127\.)'; then
+        return 1
+    fi
+    
+    return 0
 }
 
 # ====================================================
