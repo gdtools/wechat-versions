@@ -34,18 +34,24 @@ permissions:
 
 jobs:
   save_new_wechat:
-    runs-on: macos-13
+    runs-on: macos-14
     env:
       GH_TOKEN: ${{ github.token }}
+      HOMEBREW_NO_AUTO_UPDATE: 1  # 避免每次都更新 Homebrew
+    
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true  # 如果有新的运行，取消正在进行的运行
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          persist-credentials: false  # 安全性改进
       
       - name: Cache Homebrew packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/Library/Caches/Homebrew
@@ -53,36 +59,52 @@ jobs:
           key: ${{ runner.os }}-brew-${{ hashFiles('.github/workflows/destversion.yml') }}
           restore-keys: |
             ${{ runner.os }}-brew-
+          enableCrossOsArchive: true  # 启用跨操作系统缓存
       
       - name: Setup environment
         run: |
           chmod +x scripts/*.sh
-          brew update
+          brew update-reset  # 更可靠的更新方式
+          
+      - name: Install dependencies
+        run: |
+          brew install wget curl git gh p7zip
+        
+      - name: Configure Git
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
       
       - name: Check Windows version
         if: github.event.inputs.platform == 'windows' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
         run: |
           ./scripts/destVersionForWin.sh "${{ github.event.inputs.download_link }}"
         continue-on-error: false
+        timeout-minutes: 30  # 添加超时限制
       
       - name: Check Mac version
         if: github.event.inputs.platform == 'mac' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
         run: |
           ./scripts/destVersionForMac.sh "${{ github.event.inputs.download_link }}"
         continue-on-error: false
+        timeout-minutes: 30  # 添加超时限制
       
       - name: Upload error logs
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: error-logs
           path: |
             WeChatWin/temp/*.log
             WeChatMac/temp/*.log
           retention-days: 7
+          compression-level: 9 # 最大压缩级别
+          overwrite: true
 
       - name: Cleanup
         if: always()
         run: |
           rm -rf WeChatWin/temp WeChatMac/temp
-          brew cleanup
+          rm -f *.log
+          brew cleanup --prune=all  # 完全清理所有缓存
+        continue-on-error: true  # 清理失败不应影响工作流状态
