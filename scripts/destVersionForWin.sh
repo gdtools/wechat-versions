@@ -11,6 +11,7 @@ source "$(dirname "$0")/common.sh"
 TEMP_PATH="WeChatWin"
 PLATFORM="For Windows"
 WEBSITE_URL="https://dldir1v6.qq.com/weixin/Windows/WeChatSetup.exe"
+INSTALL_7Z="$([[ -e "${TEMP_PATH}/temp/\$MAINEXE\$" ]] && echo "\$MAINEXE\$" || echo "install.7z")"  # 适应不同版本的文件名
 VERSION=""
 NOW_SUM256=""
 LATEST_SUM256=""
@@ -41,31 +42,62 @@ install_depends() {
 download_wechat() {
     echo_color "yellow" "下载最新版 WeChatWin"
 
+    # 创建临时目录并清理旧文件
+    rm -rf "$TEMP_PATH/temp"
     mkdir -p "$TEMP_PATH/temp"
-    wget -q --continue "$WEBSITE_URL" -O "${TEMP_PATH}/temp/WeChatWin.exe" || {
-        echo_color "red" "下载失败，请检查网络连接"
+    
+    local download_url="$WEBSITE_URL"
+    if [ -n "$1" ]; then
+        download_url="$1"
+    fi
+
+    echo_color "yellow" "正在从 $download_url 下载..."
+    
+    # 使用 curl 替代 wget，添加更多的错误处理
+    if ! curl -L --retry 3 --retry-delay 5 -o "${TEMP_PATH}/temp/WeChatWin.exe" "$download_url"; then
+        echo_color "red" "下载失败，请检查网络连接和下载链接"
+        exit 1
+    fi
+    
+    if [ ! -s "${TEMP_PATH}/temp/WeChatWin.exe" ]; then
+        echo_color "red" "下载的文件为空"
         exit 1
     }
     
     echo_color "yellow" "解压并提取版本信息"
     
     # 第一次解压获取 install.7z
-    7z x "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp" >/dev/null || {
-        echo_color "red" "解压 WeChatWin.exe 失败"
+    if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp" > "${TEMP_PATH}/temp/7z_extract1.log" 2>&1; then
+        echo_color "red" "解压 WeChatWin.exe 失败，日志:"
+        cat "${TEMP_PATH}/temp/7z_extract1.log"
         exit 1
-    }
+    fi
+    
+    if [ ! -f "${TEMP_PATH}/temp/$INSTALL_7Z" ]; then
+        echo_color "red" "未找到 $INSTALL_7Z，当前目录内容:"
+        ls -la "${TEMP_PATH}/temp/"
+        exit 1
+    fi
     
     # 第二次解压获取版本号文件夹
-    7z x "${TEMP_PATH}/temp/install.7z" -o"${TEMP_PATH}/temp/install" >/dev/null || {
-        echo_color "red" "解压 install.7z 失败"
+    if ! 7z x -y "${TEMP_PATH}/temp/$INSTALL_7Z" -o"${TEMP_PATH}/temp/install" > "${TEMP_PATH}/temp/7z_extract2.log" 2>&1; then
+        echo_color "red" "解压 $INSTALL_7Z 失败，日志:"
+        cat "${TEMP_PATH}/temp/7z_extract2.log"
         exit 1
     }
     
     # 提取版本号
-    VERSION=$(ls -l "${TEMP_PATH}/temp/install" | awk '{print $9}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+    if [ ! -d "${TEMP_PATH}/temp/install" ]; then
+        echo_color "red" "未找到解压目录，目录内容:"
+        ls -la "${TEMP_PATH}/temp/"
+        exit 1
+    fi
+    
+    VERSION=$(find "${TEMP_PATH}/temp/install" -maxdepth 1 -type d -exec basename {} \; | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
     
     if [ -z "$VERSION" ]; then
-        echo_color "red" "无法提取版本信息"
+        echo_color "red" "无法提取版本信息，目录内容:"
+        ls -la "${TEMP_PATH}/temp/install/"
         exit 1
     fi
     
