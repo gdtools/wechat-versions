@@ -28,3 +28,11 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Project specific
+*/temp/
+*.log
+WeChatWin/temp/
+WeChatMac/temp/
+*.$MAINEXE$
+*.7z

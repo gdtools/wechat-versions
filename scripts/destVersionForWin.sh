@@ -11,7 +11,6 @@ source "$(dirname "$0")/common.sh"
 TEMP_PATH="WeChatWin"
 PLATFORM="For Windows"
 WEBSITE_URL="https://dldir1v6.qq.com/weixin/Windows/WeChatSetup.exe"
-INSTALL_7Z="$([[ -e "${TEMP_PATH}/temp/\$MAINEXE\$" ]] && echo "\$MAINEXE\$" || echo "install.7z")"  # 适应不同版本的文件名
 VERSION=""
 NOW_SUM256=""
 LATEST_SUM256=""
@@ -67,24 +66,42 @@ download_wechat() {
     echo_color "yellow" "解压并提取版本信息"
     
     # 第一次解压获取 install.7z
-    if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp" > "${TEMP_PATH}/temp/7z_extract1.log" 2>&1; then
+    if ! 7z l "${TEMP_PATH}/temp/WeChatWin.exe" > "${TEMP_PATH}/temp/7z_list.log" 2>&1; then
+        echo_color "red" "无法读取 WeChatWin.exe 内容，日志:"
+        cat "${TEMP_PATH}/temp/7z_list.log"
+        exit 1
+    fi
+    
+    local INSTALL_FILE
+    if grep -q "\$MAINEXE\$" "${TEMP_PATH}/temp/7z_list.log"; then
+        INSTALL_FILE="\$MAINEXE\$"
+    elif grep -q "install.7z" "${TEMP_PATH}/temp/7z_list.log"; then
+        INSTALL_FILE="install.7z"
+    else
+        echo_color "red" "未找到安装文件，安装包内容:"
+        cat "${TEMP_PATH}/temp/7z_list.log"
+        exit 1
+    fi
+    
+    # 提取安装文件
+    if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp" "$INSTALL_FILE" > "${TEMP_PATH}/temp/7z_extract1.log" 2>&1; then
         echo_color "red" "解压 WeChatWin.exe 失败，日志:"
         cat "${TEMP_PATH}/temp/7z_extract1.log"
         exit 1
     fi
     
-    if [ ! -f "${TEMP_PATH}/temp/$INSTALL_7Z" ]; then
-        echo_color "red" "未找到 $INSTALL_7Z，当前目录内容:"
+    if [ ! -f "${TEMP_PATH}/temp/$INSTALL_FILE" ]; then
+        echo_color "red" "未找到 $INSTALL_FILE，当前目录内容:"
         ls -la "${TEMP_PATH}/temp/"
         exit 1
     fi
     
     # 第二次解压获取版本号文件夹
-    if ! 7z x -y "${TEMP_PATH}/temp/$INSTALL_7Z" -o"${TEMP_PATH}/temp/install" > "${TEMP_PATH}/temp/7z_extract2.log" 2>&1; then
-        echo_color "red" "解压 $INSTALL_7Z 失败，日志:"
+    if ! 7z x -y "${TEMP_PATH}/temp/$INSTALL_FILE" -o"${TEMP_PATH}/temp/install" > "${TEMP_PATH}/temp/7z_extract2.log" 2>&1; then
+        echo_color "red" "解压 $INSTALL_FILE 失败，日志:"
         cat "${TEMP_PATH}/temp/7z_extract2.log"
         exit 1
-    }
+    fi
     
     # 提取版本号
     if [ ! -d "${TEMP_PATH}/temp/install" ]; then
