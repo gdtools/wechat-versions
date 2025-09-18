@@ -65,52 +65,35 @@ download_wechat() {
     
     echo_color "yellow" "解压并提取版本信息"
     
-    # 第一次解压获取 install.7z
+    # 列出安装包内容
     if ! 7z l "${TEMP_PATH}/temp/WeChatWin.exe" > "${TEMP_PATH}/temp/7z_list.log" 2>&1; then
         echo_color "red" "无法读取 WeChatWin.exe 内容，日志:"
         cat "${TEMP_PATH}/temp/7z_list.log"
         exit 1
     fi
     
-    local INSTALL_FILE
-    if grep -q "\$MAINEXE\$" "${TEMP_PATH}/temp/7z_list.log"; then
-        INSTALL_FILE="\$MAINEXE\$"
-    elif grep -q "install.7z" "${TEMP_PATH}/temp/7z_list.log"; then
-        INSTALL_FILE="install.7z"
-    else
-        echo_color "red" "未找到安装文件，安装包内容:"
-        cat "${TEMP_PATH}/temp/7z_list.log"
-        exit 1
+    # 从安装包内容中提取版本号
+    VERSION=$(grep -o '\[[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\]' "${TEMP_PATH}/temp/7z_list.log" | head -1 | tr -d '[]')
+    
+    if [ -z "$VERSION" ]; then
+        # 尝试从文件版本信息中提取
+        VERSION=$(grep "FileVersion:" "${TEMP_PATH}/temp/7z_list.log" | head -1 | awk -F': ' '{print $2}' | tr -d '\r')
+        
+        if [ -z "$VERSION" ]; then
+            echo_color "red" "无法提取版本信息，安装包内容:"
+            cat "${TEMP_PATH}/temp/7z_list.log"
+            exit 1
+        fi
     fi
     
-    # 提取安装文件
-    if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp" "$INSTALL_FILE" > "${TEMP_PATH}/temp/7z_extract1.log" 2>&1; then
-        echo_color "red" "解压 WeChatWin.exe 失败，日志:"
-        cat "${TEMP_PATH}/temp/7z_extract1.log"
+    # 提取主程序文件
+    echo_color "yellow" "提取版本 $VERSION 的主程序"
+    
+    if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp/extracted" "$[${VERSION}]/*" > "${TEMP_PATH}/temp/7z_extract.log" 2>&1; then
+        echo_color "red" "提取文件失败，日志:"
+        cat "${TEMP_PATH}/temp/7z_extract.log"
         exit 1
     fi
-    
-    if [ ! -f "${TEMP_PATH}/temp/$INSTALL_FILE" ]; then
-        echo_color "red" "未找到 $INSTALL_FILE，当前目录内容:"
-        ls -la "${TEMP_PATH}/temp/"
-        exit 1
-    fi
-    
-    # 第二次解压获取版本号文件夹
-    if ! 7z x -y "${TEMP_PATH}/temp/$INSTALL_FILE" -o"${TEMP_PATH}/temp/install" > "${TEMP_PATH}/temp/7z_extract2.log" 2>&1; then
-        echo_color "red" "解压 $INSTALL_FILE 失败，日志:"
-        cat "${TEMP_PATH}/temp/7z_extract2.log"
-        exit 1
-    fi
-    
-    # 提取版本号
-    if [ ! -d "${TEMP_PATH}/temp/install" ]; then
-        echo_color "red" "未找到解压目录，目录内容:"
-        ls -la "${TEMP_PATH}/temp/"
-        exit 1
-    fi
-    
-    VERSION=$(find "${TEMP_PATH}/temp/install" -maxdepth 1 -type d -exec basename {} \; | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
     
     if [ -z "$VERSION" ]; then
         echo_color "red" "无法提取版本信息，目录内容:"
@@ -141,6 +124,10 @@ main() {
     # 移动文件到版本目录
     mkdir -p "$VERSION_DIR"
     cp "$SOURCE_FILE" "$TARGET_FILE"
+    
+    # 复制版本文件列表
+    echo "Files included in version $VERSION:" > "$VERSION_DIR/files_list.txt"
+    7z l "${TEMP_PATH}/temp/WeChatWin.exe" | grep "\[${VERSION}\]/" >> "$VERSION_DIR/files_list.txt"
     
     # 计算 SHA256 并准备发布文件
     NOW_SUM256=$(prepare_files "$PLATFORM" "$VERSION" "$TARGET_FILE" "$VERSION_DIR" "$WEBSITE_URL")
