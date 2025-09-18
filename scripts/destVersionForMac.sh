@@ -2,6 +2,9 @@
 
 set -eo pipefail
 
+# 导入公共函数
+source "$(dirname "$0")/common.sh"
+
 # ====================================================
 # 配置变量
 # ====================================================
@@ -17,26 +20,12 @@ LATEST_VERSION=""
 # 函数定义
 # ====================================================
 
-# 彩色输出
-echo_color() {
-    local color="$1"
-    shift
-    local message="$*"
-    
-    case "$color" in
-        yellow) echo -e "\033[1;33m$message\033[0m" ;;
-        red) echo -e "\033[1;31m$message\033[0m" >&2 ;;
-        green) echo -e "\033[1;32m$message\033[0m" ;;
-        *) echo "$message" ;;
-    esac
-}
-
 # 安装依赖
 install_depends() {
-    echo_color "yellow" "检查依赖: wget, curl, git, gh, pup"
+    echo_color "yellow" "检查依赖: wget, curl, git, gh"
     
     local missing_deps=()
-    for cmd in wget curl git gh pup; do
+    for cmd in wget curl git gh; do
         command -v $cmd >/dev/null 2>&1 || missing_deps+=($cmd)
     done
     
@@ -56,10 +45,16 @@ download_wechat() {
     mkdir -p "$TEMP_PATH/temp"
     
     # 获取下载链接
-    DOWNLOAD_LINK=$(curl -s "$WEBSITE_URL" | pup 'a.download-button:nth-of-type(1) attr{href}')
+    DOWNLOAD_LINK=$(curl -s "$WEBSITE_URL" | grep -o 'https://[^"]*\.dmg' | head -n 1)
     
     if [ -z "$DOWNLOAD_LINK" ]; then
         echo_color "red" "无法获取下载链接"
+        exit 1
+    fi
+    
+    # 验证下载链接
+    if ! echo "$DOWNLOAD_LINK" | grep -q "^https://.*\.dmg$"; then
+        echo_color "red" "获取到的下载链接格式不正确"
         exit 1
     fi
     
@@ -109,78 +104,6 @@ extract_version() {
     echo_color "green" "提取到版本号: $VERSION"
 }
 
-# 准备文件并计算 SHA256
-prepare_files() {
-    echo_color "yellow" "准备文件"
-    
-    VERSION_DIR="WeChatMac/$VERSION"
-    mkdir -p "$VERSION_DIR"
-    
-    # 复制到版本目录
-    cp "${TEMP_PATH}/temp/WeChatMac.dmg" "$VERSION_DIR/WeChatMac-$VERSION.dmg"
-    
-    # 计算 SHA256
-    NOW_SUM256=$(shasum -a 256 "$VERSION_DIR/WeChatMac-$VERSION.dmg" | awk '{print $1}')
-    
-    # 创建 SHA256 文件
-    cat > "$VERSION_DIR/WeChatMac-$VERSION.dmg.sha256" <<EOF
-DestVersion: $VERSION
-Sha256: $NOW_SUM256
-UpdateTime: $(date -u '+%Y-%m-%d %H:%M:%S') (UTC)
-DownloadFrom: $DOWNLOAD_LINK
-EOF
-
-    echo_color "green" "SHA256: $NOW_SUM256"
-}
-
-# 获取 GitHub 最新发布信息
-get_release_info() {
-    echo_color "yellow" "获取 GitHub 最新发布信息"
-    
-    # 检查 GitHub CLI 登录状态
-    gh auth status &>/dev/null || {
-        echo_color "red" "GitHub CLI 未登录，请先运行 'gh auth login'"
-        exit 1
-    }
-    
-    # 筛选最新发布版本（tag 以 -mac 结尾）
-    FILTERED_RELEASE=$(gh release list --limit 20 2>/dev/null | grep "$PLATFORM" | grep -E '\-mac[[:space:]]' | head -1 || true)
-    
-    if [ -n "$FILTERED_RELEASE" ]; then
-        LATEST_VERSION=$(echo "$FILTERED_RELEASE" | awk '{print $4}' | sed 's/^v//' )
-        LATEST_SUM256=$(gh release view "v$LATEST_VERSION" --json body --jq ".body" | grep 'Sha256:' | awk -F': ' '{print $2}' || echo "")
-    fi
-}
-
-# 创建发布
-create_release() {
-    echo_color "yellow" "创建 GitHub 发布"
-    
-    # 处理版本冲突
-    local VERSION_TAG="${VERSION}-mac"
-    if [ "${VERSION}-mac" = "$LATEST_VERSION" ]; then
-        VERSION_TAG="${VERSION}-mac_$(date -u '+%Y%m%d%H%M%S')"
-    fi
-    
-    # 发布说明
-    local RELEASE_NOTES="Platform: $PLATFORM\nVersion: $VERSION\nSHA256: $NOW_SUM256\nUpdate Time: $(date -u '+%Y-%m-%d %H:%M:%S') (UTC)"
-    
-    # 创建发布
-    gh release create "v$VERSION_TAG" "$VERSION_DIR/WeChatMac-$VERSION.dmg" \
-        -F "$VERSION_DIR/WeChatMac-$VERSION.dmg.sha256" \
-        -t "WeChat $PLATFORM v$VERSION_TAG" \
-        -n "$RELEASE_NOTES" || {
-            echo_color "red" "创建发布失败"
-            exit 1
-        }
-}
-
-# 清理临时文件
-clean_temp() {
-    echo_color "yellow" "清理临时文件"
-    rm -rf "${TEMP_PATH}/temp"
-}
-
 # ====================================================
 # 主流程
 # ====================================================
@@ -193,19 +116,50 @@ main() {
     install_depends
     download_wechat
     extract_version
-    prepare_files
-    get_release_info
+    
+    # 准备文件
+    VERSION_DIR="WeChatMac/$VERSION"
+    SOURCE_FILE="${TEMP_PATH}/temp/WeChatMac.dmg"
+    TARGET_FILE="$VERSION_DIR/WeChatMac-$VERSION.dmg"
+    
+    # 移动文件到版本目录
+    mkdir -p "$VERSION_DIR"
+    cp "$SOURCE_FILE" "$TARGET_FILE"
+    
+    # 计算 SHA256 并准备发布文件
+    NOW_SUM256=$(prepare_files "$PLATFORM" "$VERSION" "$TARGET_FILE" "$VERSION_DIR" "$DOWNLOAD_LINK")
+    
+    # 获取最新发布信息
+    RELEASE_INFO=$(get_latest_release_info "$PLATFORM" "mac")
+    if [ -n "$RELEASE_INFO" ]; then
+        LATEST_VERSION=$(echo "$RELEASE_INFO" | cut -d':' -f1)
+        LATEST_SUM256=$(echo "$RELEASE_INFO" | cut -d':' -f2)
+    fi
     
     # 检查是否需要更新
     if [ "$NOW_SUM256" = "$LATEST_SUM256" ] && [ -n "$LATEST_SUM256" ]; then
         echo_color "green" "当前已是最新版本，无需更新"
     else
         echo_color "yellow" "检测到新版本，创建发布..."
-        create_release
+        
+        # 处理版本冲突
+        VERSION_TAG="${VERSION}-mac"
+        if [ "${VERSION}-mac" = "$LATEST_VERSION" ]; then
+            VERSION_TAG="${VERSION}-mac_$(date -u '+%Y%m%d%H%M%S')"
+        fi
+        
+        # 创建发布
+        create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
+            "$TARGET_FILE" \
+            "$TARGET_FILE.sha256" \
+            "$NOW_SUM256"
+            
         echo_color "green" "版本 $VERSION 发布成功"
     fi
     
-    clean_temp
+    # 清理临时文件
+    echo_color "yellow" "清理临时文件"
+    rm -rf "${TEMP_PATH}/temp"
 }
 
 main
