@@ -62,7 +62,7 @@ download_wechat() {
     if [ ! -s "${TEMP_PATH}/temp/WeChatWin.exe" ]; then
         echo_color "red" "下载的文件为空"
         exit 1
-    }
+    fi
     
     echo_color "yellow" "解压并提取版本信息"
     
