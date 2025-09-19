@@ -89,19 +89,23 @@ extract_version() {
     fi
     
     # 提取版本号
-    # 首先尝试从 Info.plist 获取版本号
+    # 从 Info.plist 获取版本号
     local INFO_PLIST="${MOUNT_DIR}/WeChat.app/Contents/Info.plist"
     if [ -f "$INFO_PLIST" ]; then
-        VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || true)
+        # 优先使用 WeChatBundleVersion
+        VERSION=$(/usr/libexec/PlistBuddy -c "Print :WeChatBundleVersion" "$INFO_PLIST" 2>/dev/null || true)
         
+        # 如果获取失败，尝试 CFBundleShortVersionString
         if [ -z "$VERSION" ]; then
-            VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || true)
+            VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || true)
         fi
-    fi
-    
-    # 如果从 Info.plist 获取失败，尝试从二进制文件中提取
-    if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-        VERSION=$(strings "$WECHAT_BINARY" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^127\.' | sort -V | tail -n 1)
+        
+        # 输出调试信息
+        if [ "${DEBUG:-}" = "1" ]; then
+            echo_color "yellow" "正在从 Info.plist 获取版本号"
+            echo_color "yellow" "WeChatBundleVersion: $(/usr/libexec/PlistBuddy -c "Print :WeChatBundleVersion" "$INFO_PLIST" 2>/dev/null || echo "未找到")"
+            echo_color "yellow" "CFBundleShortVersionString: $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "未找到")"
+        fi
     fi
     
     # 卸载 DMG
@@ -128,19 +132,27 @@ extract_version() {
 validate_version() {
     local ver="$1"
     
-    # 检查版本号格式
+    # 检查版本号格式 (x.x.x.xx)
     if ! echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
         return 1
     fi
     
-    # 检查版本号范围
+    # 解析版本号各个部分
     local major_ver=$(echo "$ver" | cut -d. -f1)
-    if [ "$major_ver" -lt 1 ] || [ "$major_ver" -gt 9 ]; then
+    local minor_ver=$(echo "$ver" | cut -d. -f2)
+    local patch_ver=$(echo "$ver" | cut -d. -f3)
+    local build_ver=$(echo "$ver" | cut -d. -f4)
+    
+    # WeChat 版本号通常在这个范围内
+    if [ "$major_ver" -lt 1 ] || [ "$major_ver" -gt 9 ] || \
+       [ "$minor_ver" -lt 0 ] || [ "$minor_ver" -gt 99 ] || \
+       [ "$patch_ver" -lt 0 ] || [ "$patch_ver" -gt 99 ] || \
+       [ "$build_ver" -lt 0 ] || [ "$build_ver" -gt 99 ]; then
         return 1
     fi
     
     # 排除特殊版本号
-    if echo "$ver" | grep -qE '^(0\.|127\.)'; then
+    if echo "$ver" | grep -qE '^(0\.|127\.|255\.)'; then
         return 1
     fi
     
