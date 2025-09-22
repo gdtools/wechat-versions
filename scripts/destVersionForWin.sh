@@ -174,6 +174,9 @@ main() {
         echo_color "yellow" "检测到新版本，创建发布..."
         VERSION_TAG="${VERSION}-win"
     fi
+    
+    echo_color "green" "使用发布标签: v${VERSION_TAG}"
+    fi
         
         # 创建发布
         create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
