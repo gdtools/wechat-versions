@@ -91,13 +91,24 @@ download_wechat() {
     
     mkdir -p "${TEMP_PATH}/temp/extracted"
     
-    # 使用引号保护文件名中的特殊字符
+    # 先检查文件是否存在且大小合适
+    if [ ! -f "${TEMP_PATH}/temp/WeChatWin.exe" ] || [ ! -s "${TEMP_PATH}/temp/WeChatWin.exe" ]; then
+        echo_color "red" "安装包文件不存在或为空"
+        exit 1
+    fi
+    
+    # 首先尝试带方括号的版本目录
     EXTRACT_PATH="\[${VERSION}\]/*"
     if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp/extracted" "$EXTRACT_PATH" > "${TEMP_PATH}/temp/7z_extract.log" 2>&1; then
-        if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp/extracted" > "${TEMP_PATH}/temp/7z_extract.log" 2>&1; then
-            echo_color "red" "提取文件失败，日志:"
-            cat "${TEMP_PATH}/temp/7z_extract.log"
-            exit 1
+        echo_color "yellow" "尝试不带方括号的版本目录..."
+        EXTRACT_PATH="${VERSION}/*"
+        if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp/extracted" "$EXTRACT_PATH" > "${TEMP_PATH}/temp/7z_extract.log" 2>&1; then
+            echo_color "yellow" "尝试完整解压..."
+            if ! 7z x -y "${TEMP_PATH}/temp/WeChatWin.exe" -o"${TEMP_PATH}/temp/extracted" > "${TEMP_PATH}/temp/7z_extract.log" 2>&1; then
+                echo_color "red" "提取文件失败，日志:"
+                cat "${TEMP_PATH}/temp/7z_extract.log"
+                exit 1
+            fi
         fi
     fi
     
@@ -176,16 +187,14 @@ main() {
     fi
     
     echo_color "green" "使用发布标签: v${VERSION_TAG}"
-    fi
+    
+    # 创建发布
+    create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
+        "$TARGET_FILE" \
+        "$TARGET_FILE.sha256" \
+        "$NOW_SUM256"
         
-        # 创建发布
-        create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
-            "$TARGET_FILE" \
-            "$TARGET_FILE.sha256" \
-            "$NOW_SUM256"
-            
-        echo_color "green" "版本 $VERSION 发布成功"
-    fi
+    echo_color "green" "版本 $VERSION 发布成功"
     
     # 清理临时文件
     echo_color "yellow" "清理临时文件"

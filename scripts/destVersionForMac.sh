@@ -216,16 +216,14 @@ main() {
     fi
     
     echo_color "green" "使用发布标签: v${VERSION_TAG}"
-    fi
-        
-        # 创建发布
-        create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
-            "$TARGET_FILE" \
-            "$TARGET_FILE.sha256" \
-            "$NOW_SUM256"
+    
+    # 创建发布
+    create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
+        "$TARGET_FILE" \
+        "$TARGET_FILE.sha256" \
+        "$NOW_SUM256"
             
         echo_color "green" "版本 $VERSION 发布成功"
-    fi
     
     # 清理临时文件
     echo_color "yellow" "清理临时文件"
