@@ -191,17 +191,29 @@ main() {
         LATEST_SUM256=$(echo "$RELEASE_INFO" | cut -d':' -f2)
     fi
     
-    # 检查是否需要更新
-    if [ "$NOW_SUM256" = "$LATEST_SUM256" ] && [ -n "$LATEST_SUM256" ]; then
-        echo_color "green" "当前已是最新版本，无需更新"
+    # 获取当前日期时间
+    CURRENT_DATE=$(date -u '+%Y%m%d')
+    
+    # 检查版本更新和哈希值
+    if [ "${VERSION}-mac" = "$LATEST_VERSION" ]; then
+        if [ "$NOW_SUM256" = "$LATEST_SUM256" ]; then
+            echo_color "green" "当前版本哈希值一致，无需更新"
+            exit 0
+        else
+            echo_color "yellow" "检测到相同版本号但哈希值不同，准备创建新发布..."
+            VERSION_TAG="${VERSION}-mac_${CURRENT_DATE}"
+            
+            # 检查是否已存在当天的发布
+            local try_count=1
+            while gh release view "v${VERSION_TAG}" &>/dev/null; do
+                VERSION_TAG="${VERSION}-mac_${CURRENT_DATE}_${try_count}"
+                try_count=$((try_count + 1))
+            done
+        fi
     else
         echo_color "yellow" "检测到新版本，创建发布..."
-        
-        # 处理版本冲突
         VERSION_TAG="${VERSION}-mac"
-        if [ "${VERSION}-mac" = "$LATEST_VERSION" ]; then
-            VERSION_TAG="${VERSION}-mac_$(date -u '+%Y%m%d%H%M%S')"
-        fi
+    fi
         
         # 创建发布
         create_github_release "$PLATFORM" "$VERSION" "$VERSION_TAG" \
