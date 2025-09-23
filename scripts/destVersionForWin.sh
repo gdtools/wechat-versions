@@ -171,8 +171,46 @@ main() {
             echo_color "green" "当前版本哈希值一致，无需更新"
             exit 0
         else
-            echo_color "yellow" "检测到相同版本号但哈希值不同，准备创建新发布..."
-            VERSION_TAG="${VERSION}-win_${CURRENT_DATE}"
+            echo_color "yellow" "检测到相同版本号但哈希值不同，进行额外验证..."
+            
+            # 记录文件大小
+            local FILE_SIZE=$(stat -f%z "$TARGET_FILE")
+            echo_color "yellow" "当前文件大小: $FILE_SIZE bytes"
+            
+            # 二次下载验证
+            local TEMP_FILE="${TEMP_PATH}/temp/WeChatWin_verify.exe"
+            echo_color "yellow" "开始二次下载验证..."
+            if ! curl -L --retry 3 --retry-delay 5 -o "$TEMP_FILE" "$WEBSITE_URL"; then
+                echo_color "red" "二次下载验证失败"
+                exit 1
+            fi
+            
+            # 计算二次下载文件的哈希值
+            local VERIFY_SUM256=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
+            
+            # 比较两次下载的哈希值
+            if [ "$NOW_SUM256" = "$VERIFY_SUM256" ]; then
+                echo_color "yellow" "二次验证成功，哈希值一致，准备创建新发布..."
+                VERSION_TAG="${VERSION}-win_${CURRENT_DATE}"
+                
+                # 创建一个 issue 来通知管理员
+                gh issue create \
+                    --title "检测到相同版本号但哈希值变化 [${VERSION}-win]" \
+                    --body "**版本信息**
+- 版本号: ${VERSION}-win
+- 原始哈希值: ${LATEST_SUM256}
+- 新哈希值: ${NOW_SUM256}
+- 文件大小: ${FILE_SIZE} bytes
+- 下载链接: ${WEBSITE_URL}
+- 时间: $(date -u '+%Y-%m-%d %H:%M:%S') UTC
+
+二次下载验证已通过，新旧哈希值不同，可能是官方更新了安装包。" || echo_color "yellow" "Issue 创建失败，继续执行..."
+            else
+                echo_color "red" "二次验证失败，两次下载的哈希值不一致"
+                echo_color "red" "首次: $NOW_SUM256"
+                echo_color "red" "二次: $VERIFY_SUM256"
+                exit 1
+            fi
             
             # 检查是否已存在当天的发布
             local try_count=1
@@ -212,6 +250,7 @@ main() {
     # 清理临时文件
     echo_color "yellow" "清理临时文件"
     rm -rf "${TEMP_PATH}/temp"
+    rm -f "${TEMP_PATH}/temp/WeChatWin_verify.exe" 2>/dev/null || true
 }
 
 main
