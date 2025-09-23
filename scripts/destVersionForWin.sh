@@ -184,6 +184,19 @@ main() {
     else
         echo_color "yellow" "检测到新版本，创建发布..."
         VERSION_TAG="${VERSION}-win"
+        
+        # 检查标签是否已存在
+        if gh release view "v${VERSION_TAG}" &>/dev/null; then
+            echo_color "yellow" "发布标签已存在，添加日期后缀..."
+            VERSION_TAG="${VERSION}-win_${CURRENT_DATE}"
+            
+            # 检查是否已存在当天的发布
+            local try_count=1
+            while gh release view "v${VERSION_TAG}" &>/dev/null; do
+                VERSION_TAG="${VERSION}-win_${CURRENT_DATE}_${try_count}"
+                try_count=$((try_count + 1))
+            done
+        fi
     fi
     
     echo_color "green" "使用发布标签: v${VERSION_TAG}"
