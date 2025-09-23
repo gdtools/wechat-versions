@@ -25,7 +25,7 @@ install_depends() {
     echo_color "yellow" "检查依赖: 7zip, wget, curl, git, gh"
     
     local missing_deps=()
-    for cmd in 7z wget curl git gh; do
+    for cmd in 7z wget curl git gh jq; do
         command -v $cmd >/dev/null 2>&1 || missing_deps+=($cmd)
     done
     
