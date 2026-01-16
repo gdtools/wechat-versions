@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: '选择平台 (all/mac/windows)'
+        description: '选择平台 (all/mac/windows/android)'
         required: true
         default: 'all'
         type: choice
@@ -14,8 +14,9 @@ on:
           - all
           - mac
           - windows
+          - android
       download_link:
-        description: '手动指定下载链接（可选）'
+        description: '手动指定下载链接（可选，仅支持单个平台测试）'
         required: false
         type: string
         default: ''
@@ -68,7 +69,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          brew install wget curl git gh p7zip
+          brew install wget curl git gh p7zip jq
         
       - name: Configure Git
         run: |
@@ -78,16 +79,23 @@ jobs:
       - name: Check Windows version
         if: github.event.inputs.platform == 'windows' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
         run: |
-          ./scripts/destVersionForWin.sh "${{ github.event.inputs.download_link }}"
+          ./scripts/monitor.sh windows
         continue-on-error: false
-        timeout-minutes: 30  # 添加超时限制
+        timeout-minutes: 30
       
       - name: Check Mac version
         if: github.event.inputs.platform == 'mac' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
         run: |
-          ./scripts/destVersionForMac.sh "${{ github.event.inputs.download_link }}"
+          ./scripts/monitor.sh mac
         continue-on-error: false
-        timeout-minutes: 30  # 添加超时限制
+        timeout-minutes: 30
+      
+      - name: Check Android version
+        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
+        run: |
+          ./scripts/monitor.sh android
+        continue-on-error: false
+        timeout-minutes: 30
       
       - name: Upload error logs
         if: failure()
@@ -95,8 +103,7 @@ jobs:
         with:
           name: error-logs
           path: |
-            WeChatWin/temp/*.log
-            WeChatMac/temp/*.log
+            temp_*/*.log
           retention-days: 7
           compression-level: 9 # 最大压缩级别
           overwrite: true
@@ -104,7 +111,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -rf WeChatWin/temp WeChatMac/temp
+          rm -rf temp_*
           rm -f *.log
           brew cleanup --prune=all  # 完全清理所有缓存
         continue-on-error: true  # 清理失败不应影响工作流状态
