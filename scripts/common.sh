@@ -88,6 +88,49 @@ parse_version_from_url() {
     echo "$version"
 }
 
+# Extract Detailed Version from File
+extract_detailed_version() {
+    local file="$1"
+    local platform="$2"
+    local fallback_version="$3"
+    
+    local detailed_version=""
+    
+    if [ "$platform" == "win" ] && [ -f "$file" ]; then
+        # Try to find version directory inside the archive using 7z
+        # Look for pattern [x.x.x.x]
+        # output is like: ... 2023-01-01 00:00:00 .... [3.9.10.19]
+        local list_out=$(7z l "$file" 2>/dev/null)
+        if [ $? -eq 0 ]; then
+             detailed_version=$(echo "$list_out" | grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]' | head -n 1 | tr -d '[]')
+        fi
+    elif [ "$platform" == "mac" ] && [ -f "$file" ]; then
+        # Mac: Mount DMG and read Info.plist
+        # Use hdiutil for mounting (macos runner only)
+        
+        # Generate random mount point to avoid collision
+        local mount_point="/Volumes/WeChat_$(date +%s)"
+        
+        # Attach and parse mount point specifically if needed, but -mountpoint is safer
+        hdiutil attach "$file" -mountpoint "$mount_point" -nobrowse -readonly -quiet
+        
+        local plist_path="$mount_point/WeChat.app/Contents/Info.plist"
+        if [ -f "$plist_path" ]; then
+            # Use PlistBuddy
+            detailed_version=$(/usr/libexec/PlistBuddy -c "Print WeChatBundleVersion" "$plist_path" 2>/dev/null)
+        fi
+        
+        # Detach
+        hdiutil detach "$mount_point" -force -quiet || true
+    fi
+    
+    if [ -n "$detailed_version" ]; then
+        echo "$detailed_version"
+    else
+        echo "$fallback_version"
+    fi
+}
+
 # Calculate SHA256 of a file
 calculate_sha256() {
     local file="$1"
