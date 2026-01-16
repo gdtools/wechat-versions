@@ -154,4 +154,61 @@ create_release() {
     gh release create "$tag" "$file" "${file}.sha256" \
         -t "WeChat $platform v$version" \
         -n "$notes"
+    
+    if [ $? -eq 0 ]; then
+        echo_color "green" "GitHub Release created successfully: $tag"
+        # Update RELEASE_LOG.md
+        update_release_log "$platform" "$version" "$hash" "$tag"
+    else
+        echo_color "red" "Failed to create GitHub Release"
+        exit 1
+    fi
+}
+
+update_release_log() {
+    local platform="$1"
+    local version="$2"
+    local hash="$3"
+    local tag="$4"
+    
+    local today=$(date "+%Y-%m-%d")
+    local short_hash=$(echo "$hash" | cut -c 1-8)
+    local release_link="https://github.com/canc3s/wechat-versions/releases/tag/${tag}"
+    
+    local row="| $today | **$version** | \`$short_hash\` | [Release]($release_link) |"
+    # Assuming RELEASE_LOG.md is in the project root, which is parent of scripts/
+    local log_file="$(dirname "$0")/../RELEASE_LOG.md"
+    
+    # Map platform code to Header Name
+    local section_name=""
+    if [ "$platform" == "win" ]; then section_name="Windows"; fi
+    if [ "$platform" == "mac" ]; then section_name="Mac"; fi
+    if [ "$platform" == "android" ]; then section_name="Android"; fi
+    
+    if [ -f "$log_file" ] && [ -n "$section_name" ]; then
+        echo_color "yellow" "Updating RELEASE_LOG.md for $section_name..."
+        
+        # Insert row after the table header separator of the specific section
+        # Logic: Find "## SectionName", then find the next line starting with "| :---", append after it.
+        
+        awk -v section="## $section_name" -v new_row="$row" '
+        BEGIN { found_section=0; inserted=0 }
+        {
+            print $0
+            if ($0 == section) { found_section=1 }
+            if (found_section == 1 && $0 ~ /^\| :---/ && inserted == 0) {
+                print new_row
+                inserted=1
+                found_section=0 # Stop looking
+            }
+        }' "$log_file" > "${log_file}.tmp" && mv "${log_file}.tmp" "$log_file"
+        
+        # Git operations
+        git add "$log_file"
+        git commit -m "docs: update release log for $platform $version"
+        git push
+        echo_color "green" "RELEASE_LOG.md updated and pushed."
+    else
+        echo_color "red" "RELEASE_LOG.md not found or invalid platform."
+    fi
 }

@@ -1,99 +1,74 @@
-# WeChat 版本收集
+# 🚀 微信版本收集器 (WeChat Version Collector)
 
-本项目自动收集并保存 Windows 和 Mac 平台的微信安装包，用于版本存档和研究目的。
+> **中文说明** | [**English**](./README_EN.md)
 
-## 项目特点
+![GitHub Release](https://img.shields.io/github/v/release/canc3s/wechat-versions?style=flat-square&color=blue)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/canc3s/wechat-versions/destversion.yml?style=flat-square&label=构建状态)
+![License](https://img.shields.io/github/license/canc3s/wechat-versions?style=flat-square)
 
-- 自动下载最新版本的 Windows 和 Mac 微信客户端
-- 计算安装包的 SHA256 哈希值用于完整性校验
-- 保存所有历史版本以便追溯和比较
-- 通过 GitHub Actions 实现全自动化流程
-- 支持版本冲突检测和处理
+**多平台微信安装包自动归档工具。**
 
-## 目录结构
+本项目自动监控官方下载源，捕获最新发布的版本，并进行 SHA256 校验和归档。
 
-```
-├── README.md                     # 项目说明文档
-├── WeChatWin                     # Windows 微信版本存储目录
-│   └── [版本号]                  # 按版本号归类的安装包
-│       ├── WeChatWin-[版本号].exe      # Windows 安装包
-│       └── WeChatWin-[版本号].exe.sha256  # 安装包哈希和元信息
-├── WeChatMac                     # Mac 微信版本存储目录
-│   └── [版本号]                  # 按版本号归类的安装包
-│       ├── WeChatMac-[版本号].dmg      # Mac 安装包
-│       └── WeChatMac-[版本号].dmg.sha256  # 安装包哈希和元信息
-└── scripts                       # 自动化脚本目录
-    ├── common.sh                 # 公共函数库
-    ├── destVersionForWin.sh      # Windows 版本检测与发布脚本
-    └── destVersionForMac.sh      # Mac 版本检测与发布脚本
-```
+---
 
-## 相关项目
+## ✨ 功能特性
 
-* [Mac微信收集](https://github.com/zsbai/wechat-versions)
-* [Windows x86 微信版本收集](https://github.com/tom-snow/wechat-windows-versions-x86)
+- **多平台支持**:
+    - 🖥️ **Windows**: 监控 `pc.weixin.qq.com`
+    - 🍎 **Mac**: 监控 `mac.weixin.qq.com`
+    - 🤖 **Android**: 监控 `weixin.qq.com`
+- **🔒 完整性校验**: 自动计算并记录 SHA256 哈希值，确保文件完整。
+- **📝 自动日志**: 维护详细的 [RELEASE_LOG.md](./RELEASE_LOG.md) 发布历史。
+- **⚙️ 自动化**: 基于 GitHub Actions 的全自动监控与发布流程。
 
-## 使用方法
+---
 
-### 获取特定版本
+## 📅 发布历史
 
-直接从本仓库的 Releases 页面下载对应平台和版本的安装包。
+> **[查看完整发布日志](./RELEASE_LOG.md)**
 
-### 环境准备
+所有收集到的版本信息均记录在 **[RELEASE_LOG.md](./RELEASE_LOG.md)** 文件中，按平台分类管理。
 
-1. 安装必要依赖：
-```bash
-# Mac 通用依赖
-brew install wget curl git gh
+---
 
-# Windows 版本额外依赖
-brew install p7zip
-```
+## 🛠️ 使用说明
 
-2. GitHub CLI 认证：
-```bash
-gh auth login
-```
+### 手动运行
 
-3. 设置脚本执行权限：
-```bash
-chmod +x scripts/common.sh
-chmod +x scripts/destVersionForMac.sh
-chmod +x scripts/destVersionForWin.sh
-```
-
-### 运行脚本
-
-如需手动运行版本检测脚本:
+你可以手动触发监控脚本进行测试或临时更新：
 
 ```bash
-# 检测 Windows 微信版本更新
-./scripts/destVersionForWin.sh
+# 检查所有平台
+./scripts/monitor.sh all
 
-# 检测 Mac 微信版本更新
-./scripts/destVersionForMac.sh
+# 检查特定平台
+./scripts/monitor.sh win
+./scripts/monitor.sh mac
+./scripts/monitor.sh android
+
+# 使用自定义下载链接测试 (特定平台)
+./scripts/monitor.sh win "https://example.com/WeChat.exe"
 ```
 
-### 脚本功能说明
+---
 
-- 自动检测并安装缺失依赖
-- 智能获取最新版本下载链接
-- 自动提取版本信息
-- 计算并验证 SHA256 校验和
-- 自动处理版本冲突
-- 创建 GitHub Release
-- 自动清理临时文件
+## 📂 项目结构
 
-## 说明
+```
+.
+├── RELEASE_LOG.md          # 📜 所有发布版本的历史记录
+├── README.md               # 🇨🇳 中文说明文档
+├── README_EN.md            # 🇺🇸 英文说明文档
+├── scripts/
+│   ├── monitor.sh          # 🧠 主逻辑入口
+│   ├── common.sh           # 🔧 公共函数 (爬虫, Git, 发布)
+└── .github/workflows/
+    └── destversion.yml     # 🤖 CI/CD 配置
+```
 
-- 项目使用 GitHub Actions 自动下载最新版本微信安装包，计算哈希值并发布到仓库
-- 所有安装包均从官方渠道获取，确保安全性
-- **注意**: 3.5.0.46 版本以前的部分安装包来自 [web.archive.org](https://web.archive.org/web/*/https://pc.weixin.qq.com/)
+---
 
-## 版本历史
+## 📄 许可证
 
-各版本更新日志可参见 [微信更新日志](https://weixin.qq.com/cgi-bin/readtemplate?lang=zh_CN&t=weixin_faq_list&head=true)
-
-## 免责声明
-
-本项目仅用于研究和存档目的，所有安装包版权归腾讯公司所有。如有任何问题或侵权，请提交 Issue 告知，我们将及时处理。
+本项目基于 MIT License 开源。
