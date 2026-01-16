@@ -19,6 +19,11 @@ if [ "$PLATFORM" == "all" ]; then
     exit 0
 fi
 
+# Normalize platform names
+if [ "$PLATFORM" == "windows" ]; then
+    PLATFORM="win"
+fi
+
 check_github_auth
 
 echo_color "yellow" "Starting WeChat monitor for $PLATFORM..."
