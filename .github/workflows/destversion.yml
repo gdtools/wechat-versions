@@ -76,26 +76,11 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
       
-      - name: Check Windows version
-        if: github.event.inputs.platform == 'windows' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
+      - name: Run Monitor
         run: |
-          ./scripts/monitor.sh windows
+          ./scripts/monitor.sh "${{ github.event.inputs.platform || 'all' }}" "${{ github.event.inputs.download_link }}"
         continue-on-error: false
-        timeout-minutes: 30
-      
-      - name: Check Mac version
-        if: github.event.inputs.platform == 'mac' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
-        run: |
-          ./scripts/monitor.sh mac
-        continue-on-error: false
-        timeout-minutes: 30
-      
-      - name: Check Android version
-        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all' || github.event.inputs.platform == ''
-        run: |
-          ./scripts/monitor.sh android
-        continue-on-error: false
-        timeout-minutes: 30
+        timeout-minutes: 45
       
       - name: Upload error logs
         if: failure()

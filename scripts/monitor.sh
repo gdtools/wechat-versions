@@ -6,13 +6,17 @@ set -eo pipefail
 source "$(dirname "$0")/common.sh"
 
 PLATFORM="$1"
+DOWNLOAD_URL_OVERRIDE="$2"
 
 if [ -z "$PLATFORM" ]; then
-    echo_color "red" "Usage: $0 [all|win|mac|android]"
+    echo_color "red" "Usage: $0 [all|win|mac|android] [optional_url]"
     exit 1
 fi
 
 if [ "$PLATFORM" == "all" ]; then
+    if [ -n "$DOWNLOAD_URL_OVERRIDE" ]; then
+        echo_color "yellow" "Warning: Custom URL '$DOWNLOAD_URL_OVERRIDE' is ignored in 'all' mode."
+    fi
     for p in win mac android; do
         "$0" "$p"
     done
@@ -29,7 +33,13 @@ check_github_auth
 echo_color "yellow" "Starting WeChat monitor for $PLATFORM..."
 
 # 1. Get Download URL
-DOWNLOAD_URL=$(scrape_url "$PLATFORM")
+if [ -n "$DOWNLOAD_URL_OVERRIDE" ]; then
+    DOWNLOAD_URL="$DOWNLOAD_URL_OVERRIDE"
+    echo_color "yellow" "Using custom download URL: $DOWNLOAD_URL"
+else
+    DOWNLOAD_URL=$(scrape_url "$PLATFORM")
+fi
+
 if [ -z "$DOWNLOAD_URL" ]; then
     echo_color "red" "Failed to scrape download URL for $PLATFORM"
     exit 1
@@ -82,7 +92,7 @@ if check_tag_exists "$TAG"; then
     # Let's try to get the Release Body of the specific tag.
     
     RELEASE_BODY=$(gh release view "$TAG" --json body -q .body)
-    OLD_HASH=$(echo "$RELEASE_BODY" | grep -i "SHA256:" | awk -F': ' '{print $2}' | tr -d '\r\n ')
+    OLD_HASH=$(echo "$RELEASE_BODY" | grep -oE "\b[a-fA-F0-9]{64}\b" | head -n 1)
     
     if [ "$HASH" == "$OLD_HASH" ]; then
         echo_color "green" "Hash matches existing release. No action needed."
