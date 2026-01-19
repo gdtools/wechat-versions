@@ -250,9 +250,14 @@ update_release_log() {
         git add "$log_file"
         git commit -m "docs: update release log for $platform $version"
         
+        
         # Use GH_TOKEN for authentication if available
         if [ -n "$GH_TOKEN" ]; then
-             git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+             # Get default branch name
+             DEFAULT_BRANCH=$(gh repo view --json defaultBranchName -q .defaultBranchName)
+             if [ -z "$DEFAULT_BRANCH" ]; then DEFAULT_BRANCH="main"; fi
+             
+             git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:$DEFAULT_BRANCH
         else
              git push
         fi
