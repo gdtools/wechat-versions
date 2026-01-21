@@ -192,7 +192,7 @@ create_release() {
     echo "FileName: $filename" >> "${file}.sha256"
     
     local date_str=$(date "+%Y-%m-%d %H:%M:%S")
-    local notes=$(printf "> **Released on**: %s\n\n📦 **Download**: [Link](%s)\n\n---\n### Checksums\n\n| Algorithm | Hash |\n| :--- | :--- |\n| **SHA256** | \`%s\` |" "$platform" "$version" "$date_str" "$url" "$hash")
+    local notes=$(printf "> **Released on**: %s\n\n📦 **Download**: [Link](%s)\n\n---\n### Checksums\n\n| Algorithm | Hash |\n| :--- | :--- |\n| **SHA256** | \`%s\` |" "$date_str" "$url" "$hash")
     
     gh release create "$tag" "$file" "${file}.sha256" \
         -t "WeChat $platform v$version" \
