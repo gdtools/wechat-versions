@@ -253,11 +253,7 @@ update_release_log() {
         
         # Use GH_TOKEN for authentication if available
         if [ -n "$GH_TOKEN" ]; then
-             # Get default branch name
-             DEFAULT_BRANCH=$(gh repo view --json defaultBranchName -q .defaultBranchName)
-             if [ -z "$DEFAULT_BRANCH" ]; then DEFAULT_BRANCH="main"; fi
-             
-             git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:$DEFAULT_BRANCH
+             git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:master
         else
              git push
         fi
