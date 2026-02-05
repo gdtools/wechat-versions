@@ -96,13 +96,38 @@ extract_detailed_version() {
     
     local detailed_version=""
     
-    if [ "$platform" == "win" ] && [ -f "$file" ]; then
+    if [ "$platform" = "win" ] && [ -f "$file" ]; then
         # Try to find version directory inside the archive using 7z
-        # Look for pattern [x.x.x.x]
-        # output is like: ... 2023-01-01 00:00:00 .... [3.9.10.19]
-        local list_out=$(7z l "$file" 2>/dev/null)
-        if [ $? -eq 0 ]; then
-             detailed_version=$(echo "$list_out" | grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]' | head -n 1 | tr -d '[]')
+        # First level: check if install.7z exists (common in NSIS installers)
+        local install_7z_exists=$(7z l "$file" 2>/dev/null | grep -F "install.7z")
+        
+        if [ -n "$install_7z_exists" ]; then
+             # Extract install.7z to a temporary location to avoid pipe issues
+             local temp_dir=$(mktemp -d)
+             # Extract ONLY install.7z to temp_dir. -y assumes yes (overwrite).
+             7z e "$file" "install.7z" -o"$temp_dir" -y >/dev/null 2>&1
+             
+             if [ -f "$temp_dir/install.7z" ]; then
+                 local nested_list=$(7z l "$temp_dir/install.7z" 2>/dev/null)
+                 
+                 # Look for folder name resembling version: 4.1.7.30
+                 if [ -n "$nested_list" ]; then
+                    # Find valid version string x.x.x.x
+                    # Grep for line ending in digit.digit.digit.digit or containing it
+                    detailed_version=$(echo "$nested_list" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+                 fi
+             fi
+             
+             # Cleanup
+             rm -rf "$temp_dir"
+        fi
+
+        # Fallback to old method if detailed extraction failed
+        if [ -z "$detailed_version" ]; then
+            local list_out=$(7z l "$file" 2>/dev/null)
+            if [ $? -eq 0 ]; then
+                 detailed_version=$(echo "$list_out" | grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]' | head -n 1 | tr -d '[]')
+            fi
         fi
     elif [ "$platform" == "mac" ] && [ -f "$file" ]; then
         # Mac: Mount DMG and read Info.plist
