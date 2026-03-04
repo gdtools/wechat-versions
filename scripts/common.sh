@@ -48,9 +48,9 @@ scrape_url() {
         android)
             # Scrape from weixin.qq.com
             # Look for arm64 if possible, else 32bit. Regex for weixin8067android...apk
-            url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+_arm64\.apk" | head -n 1)
+            url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*arm64[^\"']*\.apk" | head -n 1)
             if [ -z "$url" ]; then
-                 url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+\.apk" | head -n 1)
+                 url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*\.apk" | head -n 1)
             fi
             ;;
         *)
