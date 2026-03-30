@@ -182,6 +182,27 @@ check_tag_exists() {
     gh release view "$tag" &>/dev/null
 }
 
+# Find if a hash exists in any release for a given version and platform
+find_existing_hash_in_releases() {
+    local version="$1"
+    local platform="$2"
+    local hash="$3"
+
+    # Get all tags for this version and platform
+    # Tags can be v8.0.69-android or v8.0.69-android_20260329
+    local tags=$(gh release list --limit 100 --json tagName -q ".[] | select(.tagName | startswith(\"v${version}-${platform}\")) | .tagName")
+
+    for tag in $tags; do
+        # Check if the hash exists in the release body
+        if gh release view "$tag" --json body -q .body | grep -qF "$hash"; then
+            echo "$tag"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # Create Release
 create_release() {
     local version="$1"

@@ -69,32 +69,29 @@ VERSION=$(extract_detailed_version "$FILEPATH" "$PLATFORM" "$BASIC_VERSION")
 echo_color "green" "Detailed Version: $VERSION"
 
 # 5. Check Remote Release
+HASH=$(calculate_sha256 "$FILEPATH")
+echo_color "green" "SHA256: $HASH"
+
+EXISTING_TAG=$(find_existing_hash_in_releases "$VERSION" "$PLATFORM" "$HASH")
+
+if [ -n "$EXISTING_TAG" ]; then
+    echo_color "green" "Hash $HASH already released in $EXISTING_TAG. No action needed."
+    rm -rf "$TEMP_DIR"
+    exit 0
+fi
+
+# If we are here, it means either:
+# 1. The version is completely new
+# 2. The version exists but with different hashes, and THIS binary has a new hash
+
 TAG="v${VERSION}-${PLATFORM}"
 if check_tag_exists "$TAG"; then
-    echo_color "yellow" "Version $VERSION already released ($TAG). Checking hash..."
-    
-    # Calculate Hash
-    HASH=$(calculate_sha256 "$FILEPATH")
-    echo_color "green" "SHA256: $HASH"
-
-    RELEASE_BODY=$(gh release view "$TAG" --json body -q .body)
-    OLD_HASH=$(echo "$RELEASE_BODY" | grep -oE "\b[a-fA-F0-9]{64}\b" | head -n 1)
-    
-    if [ "$HASH" == "$OLD_HASH" ]; then
-        echo_color "green" "Hash matches existing release. No action needed."
-        rm -rf "$TEMP_DIR"
-        exit 0
-    else
-        echo_color "red" "Hash MISMATCH! Existing: $OLD_HASH, New: $HASH"
-        # Create NEW release with timestamp suffix
-        create_release "$VERSION" "$PLATFORM" "$FILEPATH" "$DOWNLOAD_URL" "$HASH"
-    fi
+    echo_color "yellow" "Version $VERSION exists but has a different hash. Creating supplemental release..."
 else
     echo_color "yellow" "New version $VERSION detected. Proceeding to release..."
-    HASH=$(calculate_sha256 "$FILEPATH")
-    echo_color "green" "SHA256: $HASH"
-    create_release "$VERSION" "$PLATFORM" "$FILEPATH" "$DOWNLOAD_URL" "$HASH"
 fi
+
+create_release "$VERSION" "$PLATFORM" "$FILEPATH" "$DOWNLOAD_URL" "$HASH"
 
 # Cleanup
 rm -rf "$TEMP_DIR"
