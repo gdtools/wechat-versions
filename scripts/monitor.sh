@@ -72,7 +72,7 @@ echo_color "green" "Detailed Version: $VERSION"
 HASH=$(calculate_sha256 "$FILEPATH")
 echo_color "green" "SHA256: $HASH"
 
-EXISTING_TAG=$(find_existing_hash_in_releases "$VERSION" "$PLATFORM" "$HASH")
+EXISTING_TAG=$(find_existing_hash_in_releases "$VERSION" "$PLATFORM" "$HASH") || true
 
 if [ -n "$EXISTING_TAG" ]; then
     echo_color "green" "Hash $HASH already released in $EXISTING_TAG. No action needed."

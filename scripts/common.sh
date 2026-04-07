@@ -35,22 +35,22 @@ scrape_url() {
         win)
             # Scrape from pc.weixin.qq.com
             # Prefer Universal/64-bit if available, looking for .exe
-            url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatWin_[0-9.]+\.exe" | head -n 1)
+            url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatWin_[0-9.]+\.exe" | head -n 1) || true
             # Fallback if specific version not found, try generic setup but we prefer versioned
             if [ -z "$url" ]; then
-                url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatSetup\.exe" | head -n 1)
+                url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatSetup\.exe" | head -n 1) || true
             fi
             ;;
         mac)
             # Scrape from mac.weixin.qq.com
-            url=$(curl -s "https://mac.weixin.qq.com/?t=mac&lang=zh_CN" | grep -oE "https://[^\"']*WeChatMac_[0-9.]+\.dmg" | head -n 1)
+            url=$(curl -s "https://mac.weixin.qq.com/?t=mac&lang=zh_CN" | grep -oE "https://[^\"']*WeChatMac_[0-9.]+\.dmg" | head -n 1) || true
             ;;
         android)
             # Scrape from weixin.qq.com
             # Look for arm64 if possible, else 32bit. Regex for weixin8067android...apk
-            url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*arm64[^\"']*\.apk" | head -n 1)
+            url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*arm64[^\"']*\.apk" | head -n 1) || true
             if [ -z "$url" ]; then
-                 url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*\.apk" | head -n 1)
+                 url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*\.apk" | head -n 1) || true
             fi
             ;;
         *)
@@ -114,7 +114,7 @@ extract_detailed_version() {
                  if [ -n "$nested_list" ]; then
                     # Find valid version string x.x.x.x
                     # Grep for line ending in digit.digit.digit.digit or containing it
-                    detailed_version=$(echo "$nested_list" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+                    detailed_version=$(echo "$nested_list" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1) || true
                  fi
              fi
              
@@ -126,7 +126,7 @@ extract_detailed_version() {
         if [ -z "$detailed_version" ]; then
             local list_out=$(7z l "$file" 2>/dev/null)
             if [ $? -eq 0 ]; then
-                 detailed_version=$(echo "$list_out" | grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]' | head -n 1 | tr -d '[]')
+                 detailed_version=$(echo "$list_out" | grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]' | head -n 1 | tr -d '[]') || true
             fi
         fi
     elif [ "$platform" == "mac" ] && [ -f "$file" ]; then
@@ -142,7 +142,7 @@ extract_detailed_version() {
         local plist_path="$mount_point/WeChat.app/Contents/Info.plist"
         if [ -f "$plist_path" ]; then
             # Use PlistBuddy
-            detailed_version=$(/usr/libexec/PlistBuddy -c "Print WeChatBundleVersion" "$plist_path" 2>/dev/null)
+            detailed_version=$(/usr/libexec/PlistBuddy -c "Print WeChatBundleVersion" "$plist_path" 2>/dev/null) || true
         fi
         
         # Detach
