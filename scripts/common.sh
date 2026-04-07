@@ -35,22 +35,22 @@ scrape_url() {
         win)
             # Scrape from pc.weixin.qq.com
             # Prefer Universal/64-bit if available, looking for .exe
-            url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatWin_[0-9.]+\.exe" | head -n 1) || true
+            url=$(curl -sL --max-time 15 --retry 3 "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatWin_[0-9.]+\.exe" | head -n 1) || true
             # Fallback if specific version not found, try generic setup but we prefer versioned
             if [ -z "$url" ]; then
-                url=$(curl -s "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatSetup\.exe" | head -n 1) || true
+                url=$(curl -sL --max-time 15 --retry 3 "https://pc.weixin.qq.com/" | grep -oE "https://[^\"']*WeChatSetup\.exe" | head -n 1) || true
             fi
             ;;
         mac)
             # Scrape from mac.weixin.qq.com
-            url=$(curl -s "https://mac.weixin.qq.com/?t=mac&lang=zh_CN" | grep -oE "https://[^\"']*WeChatMac_[0-9.]+\.dmg" | head -n 1) || true
+            url=$(curl -sL --max-time 15 --retry 3 "https://mac.weixin.qq.com/?t=mac&lang=zh_CN" | grep -oE "https://[^\"']*WeChatMac_[0-9.]+\.dmg" | head -n 1) || true
             ;;
         android)
             # Scrape from weixin.qq.com
             # Look for arm64 if possible, else 32bit. Regex for weixin8067android...apk
-            url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*arm64[^\"']*\.apk" | head -n 1) || true
+            url=$(curl -sL --max-time 15 --retry 3 "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*arm64[^\"']*\.apk" | head -n 1) || true
             if [ -z "$url" ]; then
-                 url=$(curl -s "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*\.apk" | head -n 1) || true
+                 url=$(curl -sL --max-time 15 --retry 3 "https://weixin.qq.com/" | grep -oE "https://[^\"']*weixin[0-9]+android[0-9]+[^\"']*\.apk" | head -n 1) || true
             fi
             ;;
         *)

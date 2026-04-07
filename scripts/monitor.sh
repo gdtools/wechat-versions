@@ -58,7 +58,7 @@ FILENAME=$(basename "$DOWNLOAD_URL")
 FILEPATH="${TEMP_DIR}/${FILENAME}"
 
 echo_color "yellow" "Downloading $FILENAME to extract details..."
-if ! curl -L --retry 3 --retry-delay 5 -o "$FILEPATH" "$DOWNLOAD_URL"; then
+if ! curl -C - -L --retry 3 --retry-delay 5 --speed-limit 1024 --speed-time 15 -o "$FILEPATH" "$DOWNLOAD_URL"; then
     echo_color "red" "Download failed."
     rm -rf "$TEMP_DIR"
     exit 1
